@@ -54,18 +54,21 @@ ReRandCRXO <- function(nrep, Ts, clusters, m, TimeEffsInd, Treat_effect, ICC, CA
   
   #Bias
   rerand_results[1] <- mean(output[1,]-Treat_effect)
+  rerand_results[2] <- mean(output[3,]-Treat_effect)
   
   #Empirical SE
-  rerand_results[2] <- sqrt(sum((output[1,]-mean(output[1,]))^2)/(nrep-1))
-  
-  #MSE
-  rerand_results[3] <- (sum((output[1,]-Treat_effect)^2)/(nrep))
+  rerand_results[3] <- sqrt(sum((output[1,]-mean(output[1,]))^2)/(nrep-1))
+  rerand_results[4] <- sqrt(sum((output[3,]-mean(output[3,]))^2)/(nrep-1))
   
   #Average model SE
-  rerand_results[4] <- sqrt(sum((output[2,])^2)/(nrep))
+  rerand_results[5] <- sqrt(sum((output[2,])^2)/(nrep))
+  rerand_results[6] <- sqrt(sum((output[4,])^2)/(nrep))
   
   #Rejection percentage
-  rerand_results[5] <-  sum(abs(output[1,])/output[2,]>1.96)/nrep    # Hypothesis test
+  rerand_results[7] <-  sum(abs(output[1,])/output[2,]>1.96)/nrep    # Hypothesis test
+  rerand_results[8] <-  sum(abs(output[3,])/output[4,]>1.96)/nrep
+  
+  names(rerand_results) <- c("Model1:Bias", "Model2:Bias", "Model1:ESE", "Model2:ESE", "Model1:ASE", "Model2:ASE", "Model1:Alpha", "Model2:Alpha")
   
   return(rerand_results)
 }
@@ -76,21 +79,23 @@ rerand_result_cont <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC,
   #Simulate the data:
   simulated_dataset <- Rerand_CRXO_dataset(DesMatrix, clusters, m, Teffs, Treat_effect, ICC, CAC)
   
-  #Fit a model including shared time effects only
-  fit_T <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec), simulated_dataset)
+  #Fit a model including shared time effects only (exchangeable correlation structure)
+  fit1 <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec), simulated_dataset)
   
-  return(c(fixef(fit_T)[2], sqrt(vcov(fit_T)[2,2])))
+  #Fit a model including shared time effects only (block exchangeable correlation structure)
+  fit2 <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec) + (1|clusbytime_vec), simulated_dataset)
+  
+  return(c(fixef(fit1)[2], sqrt(vcov(fit1)[2,2]),
+           fixef(fit2)[2], sqrt(vcov(fit2)[2,2])))
 }
 
 # A function to generate one dataset from a longitudinal CRT with design matrix given by DesMatrix
 Rerand_CRXO_dataset <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC, CAC){
   
   # Assume total variance of 1 (for simplified interpretation)
-  # sigma_eps2: error variance
-  # sigmaA2: variance of cluster random effect
-  
-  sigmaA2 = ICC  # All of ICC is assigned to between-cluster variance
-  sigma_eps2 = 1 - sigmaA2  # Remaining variance goes to individual error
+  sigma_eps2 = 1 -ICC # error variance
+  sigmaA2 = CAC*ICC # variance of cluster random effect
+  sigmaG2 = ICC*(1-CAC) # variance of cluster-period random effects
   
   # n_period = total number of periods
   n_period = ncol(Teffs)  # number of period
@@ -110,6 +115,13 @@ Rerand_CRXO_dataset <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC
   clus_rand_eff <- rnorm(clusters,mean=0, sd=sqrt(sigmaA2))
   clus_rand_effect <- rep(clus_rand_eff, each=n_period*m) #one for each participant in each cluster
   
+  #Cluster-period random effects
+  clus_time_rand_eff = rnorm(n_period*clusters, mean=0, sd=sqrt(sigmaG2))
+  clus_time_rand_effect <- rep(clus_time_rand_eff, each=m)
+  
+  # Simulating outcomes:
+  Y = Treat_effect*treat_vec + clus_rand_effect + Time_eff + clus_time_rand_effect + epsi
+  
   clusterVi <- rep(seq(1 : clusters), each = n_period * m)
   cluster_vec = factor(clusterVi)
   
@@ -117,13 +129,15 @@ Rerand_CRXO_dataset <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC
   timeVi <- rep(timeVi, times=clusters)
   time_vec = factor(timeVi)
   
-  #Put everything together to get the outcomes:
-  Y = Treat_effect + clus_rand_effect + Time_eff + epsi
-  full_data = data.frame(Y, cluster_vec, time_vec, treat_vec)
+  clusbytime <- rep(1:(n_period*clusters), each = m)
+  clusbytime_vec = factor(clusbytime)
+  
+  full_data = data.frame(Y, cluster_vec, time_vec, treat_vec, clusbytime_vec)
   
   return(full_data)  
 }
 
 # Example of running the function
-# ReRandCRXO(100, 6, 5, 10, 1, 0.15, 0.1, 0.95)
+ReRandCRXO(nrep = 1000, Ts = 8, clusters = 10, m = 20, TimeEffsInd = 0, Treat_effect = 0, ICC = 0.05, CAC = 0.95)
+
 
