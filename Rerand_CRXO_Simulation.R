@@ -21,6 +21,9 @@ RCRXO_Desmat <- function(Ts, clusters) {
   return(CRXO)
 }
 
+# Example of the design matrix
+RCRXO_Desmat(6,4)
+
 
 # Power Simulation for a Re-randomized Cluster Crossover (ReRand-CRXO) Trial
 ReRandCRXO <- function(nrep, Ts, clusters, m, TimeEffsInd, Treat_effect, ICC, CAC){
@@ -47,7 +50,7 @@ ReRandCRXO <- function(nrep, Ts, clusters, m, TimeEffsInd, Treat_effect, ICC, CA
                           nrow = clusters, ncol = ncol(DesMatrix))
   }
   
-  # Simulating model results
+  # Model results from simulated data
   output <- replicate(nrep, rerand_result_cont(DesMatrix, clusters, m, TimeEffects, Treat_effect, ICC, CAC))
   
   rerand_results <- NULL
@@ -83,7 +86,7 @@ rerand_result_cont <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC,
   fit1 <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec), simulated_dataset)
   
   #Fit a model including shared time effects only (block exchangeable correlation structure)
-  fit2 <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec) + (1|clusbytime_vec), simulated_dataset)
+  fit2 <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec:time_vec), simulated_dataset)
   
   return(c(fixef(fit1)[2], sqrt(vcov(fit1)[2,2]),
            fixef(fit2)[2], sqrt(vcov(fit2)[2,2])))
@@ -120,7 +123,7 @@ Rerand_CRXO_dataset <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC
   clus_time_rand_effect <- rep(clus_time_rand_eff, each=m)
   
   # Simulating outcomes:
-  Y = Treat_effect*treat_vec + clus_rand_effect + Time_eff + clus_time_rand_effect + epsi
+  Y = Treat_effect*treat_vec + Time_eff + clus_rand_effect + clus_time_rand_effect + epsi
   
   clusterVi <- rep(seq(1 : clusters), each = n_period * m)
   cluster_vec = factor(clusterVi)
@@ -129,15 +132,12 @@ Rerand_CRXO_dataset <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC
   timeVi <- rep(timeVi, times=clusters)
   time_vec = factor(timeVi)
   
-  clusbytime <- rep(1:(n_period*clusters), each = m)
-  clusbytime_vec = factor(clusbytime)
-  
-  full_data = data.frame(Y, cluster_vec, time_vec, treat_vec, clusbytime_vec)
+  full_data = data.frame(Y, cluster_vec, time_vec, treat_vec)
   
   return(full_data)  
 }
 
 # Example of running the function
-ReRandCRXO(nrep = 1000, Ts = 8, clusters = 10, m = 20, TimeEffsInd = 0, Treat_effect = 0, ICC = 0.05, CAC = 0.95)
+ReRandCRXO(nrep = 100, Ts = 8, clusters = 10, m = 20, TimeEffsInd = 0, Treat_effect = 0, ICC = 0.05, CAC = 0.95)
 
 
