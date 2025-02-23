@@ -86,7 +86,7 @@ rerand_result_cont <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC,
   fit1 <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec), simulated_dataset)
   
   #Fit a model including shared time effects only (block exchangeable correlation structure)
-  fit2 <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec:time_vec), simulated_dataset)
+  fit2 <- lmer(Y ~ treat_vec + time_vec + (1|cluster_vec) + (1|cluster_vec:time_vec), simulated_dataset)
   
   return(c(fixef(fit1)[2], sqrt(vcov(fit1)[2,2]),
            fixef(fit2)[2], sqrt(vcov(fit2)[2,2])))
@@ -138,6 +138,6 @@ Rerand_CRXO_dataset <- function(DesMatrix, clusters, m, Teffs, Treat_effect, ICC
 }
 
 # Example of running the function
-ReRandCRXO(nrep = 100, Ts = 8, clusters = 10, m = 20, TimeEffsInd = 0, Treat_effect = 0, ICC = 0.05, CAC = 0.95)
+ReRandCRXO(nrep = 1000, Ts = 8, clusters = 10, m = 20, TimeEffsInd = 0, Treat_effect = 0, ICC = 0.05, CAC = 0.95)
 
 
